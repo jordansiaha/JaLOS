@@ -556,9 +556,10 @@ int join(int *status)
 		return -2;
 	}
 	
-	while (Current->childProcPtr != NULL){
-		if (Current->childProcPtr->status != QUIT){
+	if (Current->quitChild != NULL){
+		if (Current->quitChild->status != QUIT){
 			Current->status = BLOCKED;
+			short temppid = Current->pid;
 			procPtr queue = ReadyList;
 			
 			while (queue->nextProcPtr != NULL){
@@ -575,9 +576,8 @@ int join(int *status)
 				// wait
 			}
 			// should be unblocked
-			if (Current->childProcPtr->status == QUIT){
+			if (Current->quitChild->status == QUIT){
 				dispatcher();
-				break;
 			}
 		}
 	}
@@ -653,6 +653,7 @@ void quit(int status)
 		
 		temp = parent;
 		
+		// add to quitChild list
 		if (temp->quitChild == NULL){
 			temp->quitChild = Current;
 		} else {
@@ -729,6 +730,7 @@ void dispatcher(void)
 	USLOSS_DeviceInput(0, 0, &t1);
 	
 	if (Current == NULL || Current->status == QUIT){
+		USLOSS_Console("in if\n");
 		procStruct temp = dequeue();
 		Current = &temp;
 		USLOSS_DeviceInput(0, 0, &(Current->time));
@@ -736,6 +738,7 @@ void dispatcher(void)
 		p1_switch(-1, Current->pid);
 		USLOSS_ContextSwitch(NULL, &(Current->state));
 	} else {
+		USLOSS_Console("in else\n");
 		procStruct temp = dequeue();
 		nextProcess = &temp;
 		
@@ -743,6 +746,9 @@ void dispatcher(void)
 			Current->status = READY;
 			enqueue(Current);
 		}
+		
+		nextProcess->status = RUNNING;
+		
 		USLOSS_Console("Current = %s, nextProc = %s\n", Current->name, nextProcess->name);
 		p1_switch(Current->pid, nextProcess->pid);
 		enableInterrupts();
